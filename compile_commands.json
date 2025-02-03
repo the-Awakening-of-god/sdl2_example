@@ -1,0 +1,32 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-I",
+      "./include/",
+      "-o",
+      "game",
+      "./src/glad.c"
+    ],
+    "directory": "/home/caleb/Desktop/Projects/sdl2_example",
+    "file": "/home/caleb/Desktop/Projects/sdl2_example/src/glad.c",
+    "output": "/home/caleb/Desktop/Projects/sdl2_example/game"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-Wall",
+      "-I",
+      "./include/",
+      "-o",
+      "game",
+      "./src/main.c"
+    ],
+    "directory": "/home/caleb/Desktop/Projects/sdl2_example",
+    "file": "/home/caleb/Desktop/Projects/sdl2_example/src/main.c",
+    "output": "/home/caleb/Desktop/Projects/sdl2_example/game"
+  }
+]
