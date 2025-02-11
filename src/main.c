@@ -1,7 +1,9 @@
-#include "constants.h"
+#include "setup.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_timer.h>
+#include <cglm/cglm.h>
 #include <glad/glad.h>
-#include <stdio.h>
+#include <math.h>
 
 SDL_Window *window = NULL;
 SDL_GLContext context = NULL;
@@ -9,91 +11,20 @@ int game_is_running = FALSE;
 // Vertex Array Object
 GLuint gVertextArrayObject = 0;
 GLuint gVertextBufferObject = 0;
-
-const char *gVertexShaderSource =
-    "#version 410 core\n"
-    "in vec4 position;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(position.x, position.y, position.z, position.w);\n"
-    "}\n";
-
-const char *gFragmentShaderSource = "#version 410 core\n"
-                                    "out vec4 color;\n"
-                                    "void main()\n"
-                                    "{\n"
-                                    "   color = vec4(1.0f, 0.5f, 0.0f, 1.0f);\n"
-                                    "}\n";
+GLuint gEBO;
 
 // Program Object (for our shaders)
-GLuint gGraphicsPipelineShaderProgram = 0;
-
-GLuint CompileShader(GLuint type, const char *source) {
-  GLuint shaderObject = 0;
-  if (type == GL_VERTEX_SHADER) {
-    shaderObject = glCreateShader(GL_VERTEX_SHADER);
-  } else if (type == GL_FRAGMENT_SHADER) {
-    shaderObject = glCreateShader(GL_FRAGMENT_SHADER);
-  }
-
-  glShaderSource(shaderObject, 1, &source, NULL);
-  glCompileShader(shaderObject);
-
-  return shaderObject;
-}
-
-GLuint CreateShaderProgram(const char *vertexshadersource,
-                           const char *fragmentshadersource) {
-
-  GLuint programObject = glCreateProgram();
-
-  GLuint myVertextShader = CompileShader(GL_VERTEX_SHADER, vertexshadersource);
-  GLuint myFragmentShader =
-      CompileShader(GL_FRAGMENT_SHADER, fragmentshadersource);
-
-  glAttachShader(programObject, myVertextShader);
-
-  glAttachShader(programObject, myFragmentShader);
-
-  glLinkProgram(programObject);
-
-  // Validate our program
-  glValidateProgram(programObject);
-
-  return programObject;
-}
+GLuint ShaderProgram = 0;
 
 void CreateGraphicsPipeline() {
-
-  gGraphicsPipelineShaderProgram =
-      CreateShaderProgram(gVertexShaderSource, gFragmentShaderSource);
-}
-void VertextSpecification() {
-
-  // Lives on Cpu
-  const GLfloat vertextPosition[] = {
-      -0.8f, -0.8f, 0.0f, // Vertex 1
-      0.8f,  -0.8f, .0f,  // Vertex 2
-      0.0f,  0.8f,  0.0f, // Vertex 3
-  };
-  // We are setting things up on the GPU
-  glGenVertexArrays(1, &gVertextArrayObject);
-  glBindVertexArray(gVertextArrayObject);
-
-  // Start generation our Vertex Buffer Object
-
-  glGenBuffers(1, &gVertextBufferObject);
-  glBindBuffer(GL_ARRAY_BUFFER, gVertextBufferObject);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertextPosition), vertextPosition,
-               GL_STATIC_DRAW);
-
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
-  glBindVertexArray(0);
-  glDisableVertexAttribArray(0);
+  char *VertexShaderSource = readFile("src/shaders/vertshader.vert");
+  char *FragmentShaderSource = readFile("src/shaders/fragshader.frag");
+  ShaderProgram = CreateShaderProgram(VertexShaderSource, FragmentShaderSource);
+  free(VertexShaderSource);
+  free(FragmentShaderSource);
 }
 
-int initialize_window(void) {
+int initialize_window() {
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     fprintf(stderr, "Error initializing SDL.\n");
     return FALSE;
@@ -129,6 +60,14 @@ int initialize_window(void) {
     return FALSE;
   }
 
+  char *GL_version = (char *)glGetString(GL_VERSION);
+  char *GL_vendor = (char *)glGetString(GL_VENDOR);
+  char *GL_renderer = (char *)glGetString(GL_RENDERER);
+
+  printf("Version: %s\n", GL_version);
+  printf("Vendor: %s\n", GL_vendor);
+  printf("Renderer: %s\n", GL_renderer);
+
   return TRUE;
 }
 
@@ -150,22 +89,59 @@ void process_input() {
 }
 
 void PreDraw() {
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_CULL_FACE);
 
   glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-  glClearColor(1.f, 1.f, 0.f, 1.f);
+  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
-  glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT);
 
-  glUseProgram(gGraphicsPipelineShaderProgram);
+  glUseProgram(ShaderProgram);
+}
+
+void VertextSpecification() {
+
+  // Lives on Cpu
+  const GLfloat vertextPosition[] = {
+      // first triangle
+      0.5f,  0.5f,  0.0f, // top right
+      0.5f,  -0.5f, 0.0f, // bottom right
+      -0.5f, -0.5f, 0.0f, // bottom left
+      -0.5f, 0.5f,  0.0f, // top left
+  };
+  const GLuint indices[] = {0, 1, 3, 1, 2, 3};
+  // We are setting things up on the GPU
+  glGenVertexArrays(1, &gVertextArrayObject);
+  glBindVertexArray(gVertextArrayObject);
+
+  // Start generation our Vertex Buffer Object
+
+  glGenBuffers(1, &gVertextBufferObject);
+  glBindBuffer(GL_ARRAY_BUFFER, gVertextBufferObject);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertextPosition), vertextPosition,
+               GL_STATIC_DRAW);
+  // Element Array Buffer
+  glGenBuffers(1, &gEBO);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gEBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
+               GL_STATIC_DRAW);
+
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glBindVertexArray(0);
 }
 
 void render() {
-
   glBindVertexArray(gVertextArrayObject);
   glBindBuffer(GL_ARRAY_BUFFER, gVertextBufferObject);
-  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gEBO);
+
+  double timeValue = SDL_GetTicks() / 1000.f;
+  double greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+  int vertexColorLocation = glGetUniformLocation(ShaderProgram, "ourColor");
+  glUseProgram(ShaderProgram);
+  glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
 void destroy_window() {
